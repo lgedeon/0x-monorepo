@@ -65,10 +65,12 @@
         "typedoc": "0xProject/typedoc",
         "types-bn": "^0.0.1",
         "typescript": "2.7.1",
-        "web3-typescript-typings": "^0.10.2"
+        "web3-typescript-typings": "^0.10.2",
+        "zeppelin-solidity": "1.8.0"
     },
     "dependencies": {
         "@0xproject/json-schemas": "^0.7.19",
+        "@0xproject/resolver": "^0.0.1",
         "@0xproject/types": "^0.5.0",
         "@0xproject/typescript-typings": "^0.0.3",
         "@0xproject/utils": "^0.5.0",
