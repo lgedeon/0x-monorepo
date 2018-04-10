@@ -49,6 +49,15 @@ contract MixinExchangeCore is
     // Orders with a salt less than their maker's epoch are considered cancelled
     mapping (address => uint256) public makerEpoch;
 
+    // Mapping of id => default order params
+    mapping (uint256 => Order) public defaultOrderParams;
+
+    // Mapping of default order params orderHash => default order params id
+    mapping (bytes32 => uint256) public defaultOrderParamsIds;
+
+    // Last default order params id set
+    uint256 currentOrderParamsId = 0;
+
     event Fill(
         address indexed makerAddress,
         address takerAddress,
@@ -75,6 +84,11 @@ contract MixinExchangeCore is
         uint256 makerEpoch
     );
 
+    event DefaultOrderParamsRegistered(
+        bytes32 indexed orderHash,
+        uint256 defaultOrderParamsId
+    );
+
     /*
     * Core exchange functions
     */
@@ -82,15 +96,20 @@ contract MixinExchangeCore is
     /// @dev Fills the input order.
     /// @param order Order struct containing order specifications.
     /// @param takerTokenFillAmount Desired amount of takerToken to sell.
+    /// @param defaultParamsId Id of the default order parameters to use.
     /// @param signature Proof that order has been created by maker.
     /// @return Amounts filled and fees paid by maker and taker.
     function fillOrder(
         Order memory order,
         uint256 takerTokenFillAmount,
+        uint256 defaultParamsId,
         bytes memory signature)
         public
         returns (FillResults memory fillResults)
     {
+        // Overwrite null order params with defaults
+        applyDefaultOrderParams(order, defaultParamsId);
+
         // Compute the order hash
         bytes32 orderHash = getOrderHash(order);
 
@@ -166,12 +185,16 @@ contract MixinExchangeCore is
 
     /// @dev After calling, the order can not be filled anymore.
     /// @param order Order struct containing order specifications.
+    /// @param defaultParamsId Id of the default order parameters to use.
     /// @return True if the order state changed to cancelled.
     ///         False if the transaction was already cancelled or expired.
-    function cancelOrder(Order memory order)
+    function cancelOrder(Order memory order, uint256 defaultParamsId)
         public
         returns (bool)
     {
+        // Overwrite null order params with defaults
+        applyDefaultOrderParams(order, defaultParamsId);
+
         // Compute the order hash
         bytes32 orderHash = getOrderHash(order);
 
@@ -202,6 +225,7 @@ contract MixinExchangeCore is
         return true;
     }
 
+    /// @dev Cancels orders created with a salt that is less than or equal to specified salt.
     /// @param salt Orders created with a salt less or equal to this value will be cancelled.
     function cancelOrdersUpTo(uint256 salt)
         external
@@ -212,13 +236,41 @@ contract MixinExchangeCore is
         emit CancelUpTo(msg.sender, newMakerEpoch);
     }
 
+    /// @dev Stores a set of default order parameters in contract state.
+    ///      The parameters can be looked up by id. The id can be looked up by hash of the entire order struct.
+    /// @param order Order struct containing order specifications.
+    /// @return The id that the order parameters are registered to in the defaultOrderParams mapping.
+    function registerDefaultOrderParams(Order memory order)
+        public
+        returns (uint256)
+    {
+        bytes32 orderHash = getOrderHash(order);
+
+        // Order params must not already be registered
+        require(defaultOrderParamsIds[orderHash] == 0);
+
+        // Increment id
+        currentOrderParamsId++;
+
+        // Map order params to id
+        defaultOrderParams[currentOrderParamsId] = order;
+
+        // Map id to orderHash
+        defaultOrderParamsIds[orderHash] = currentOrderParamsId;
+
+        // Log registration
+        emit DefaultOrderParamsRegistered(orderHash, currentOrderParamsId);
+        return currentOrderParamsId;
+    }
+
     /// @dev Checks if rounding error > 0.1%.
     /// @param numerator Numerator.
     /// @param denominator Denominator.
     /// @param target Value to multiply with numerator/denominator.
     /// @return Rounding error is present.
     function isRoundingError(uint256 numerator, uint256 denominator, uint256 target)
-        public pure
+        public
+        pure
         returns (bool isError)
     {
         uint256 remainder = mulmod(target, numerator, denominator);
@@ -232,5 +284,75 @@ contract MixinExchangeCore is
         );
         isError = errPercentageTimes1000000 > 1000;
         return isError;
+    }
+
+    /// @dev Overwrites all 0 values of order if default paramters for the specified id exist.
+    /// @param order Order struct containing order specifications.
+    /// @param defaultParamsId Id of the default order parameters to use.
+    function applyDefaultOrderParams(Order memory order, uint256 defaultParamsId)
+        internal
+        view
+    {
+        // Do nothing if id not specified
+        if (defaultParamsId != 0) {
+
+            // Load default order params
+            Order storage orderParams = defaultOrderParams[defaultParamsId];
+
+            // Overwrite null makerAddress
+            if (order.makerAddress == address(0)) {
+                order.makerAddress = orderParams.makerAddress;
+            }
+
+            // Overwrite null takerAddress
+            if (order.takerAddress == address(0)) {
+                order.takerAddress = orderParams.takerAddress;
+            }
+
+            // Overwrite null makerTokenAddress
+            if (order.makerTokenAddress == address(0)) {
+                order.makerTokenAddress = orderParams.makerTokenAddress;
+            }
+
+            // Overwrite null takerTokenAddress
+            if (order.takerTokenAddress == address(0)) {
+                order.takerTokenAddress = orderParams.takerTokenAddress;
+            }
+
+            // Overwrite null feeRecipientAddress
+            if (order.feeRecipientAddress == address(0)) {
+                order.feeRecipientAddress = orderParams.feeRecipientAddress;
+            }
+
+            // Overwrite 0 makerTokenAmount
+            if (order.makerTokenAmount == 0) {
+                order.makerTokenAmount = orderParams.makerTokenAmount;
+            }
+
+            // Overwrite 0 takerTokenAmount
+            if (order.takerTokenAmount == 0) {
+                order.takerTokenAmount = orderParams.takerTokenAmount;
+            }
+
+            // Overwrite 0 makerFeeAmount
+            if (order.makerFee == 0) {
+                order.makerFee = orderParams.makerFee;
+            }
+
+            // Overwrite 0 takerFeeAmount
+            if (order.takerFee == 0) {
+                order.takerFee = orderParams.takerFee;
+            }
+
+            // Overwrtie 0 expirationTimeSeconds
+            if (order.expirationTimeSeconds == 0) {
+                order.expirationTimeSeconds = orderParams.expirationTimeSeconds;
+            }
+
+            // Overwrite 0 salt
+            if (order.salt == 0) {
+                order.salt = orderParams.salt;
+            }
+        }
     }
 }
