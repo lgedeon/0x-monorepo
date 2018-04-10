@@ -15,22 +15,26 @@ export interface BatchFillOrders {
     orders: OrderStruct[];
     signatures: string[];
     takerTokenFillAmounts: BigNumber[];
+    defaultParamsIds: BigNumber[];
 }
 
 export interface MarketSellOrders {
     orders: OrderStruct[];
     signatures: string[];
     takerTokenFillAmount: BigNumber;
+    defaultParamsIds: BigNumber[];
 }
 
 export interface MarketBuyOrders {
     orders: OrderStruct[];
     signatures: string[];
     makerTokenFillAmount: BigNumber;
+    defaultParamsIds: BigNumber[];
 }
 
 export interface BatchCancelOrders {
     orders: OrderStruct[];
+    defaultParamsIds: BigNumber[];
 }
 
 export interface CancelOrdersBefore {

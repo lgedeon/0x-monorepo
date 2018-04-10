@@ -7,18 +7,19 @@ import { crypto } from './crypto';
 import { OrderStruct, SignatureType, SignedOrder, UnsignedOrder } from './types';
 
 export const orderUtils = {
-    createFill: (signedOrder: SignedOrder, takerTokenFillAmount?: BigNumber) => {
+    createFill: (signedOrder: SignedOrder, takerTokenFillAmount?: BigNumber, defaultParamsIds?: BigNumber) => {
         const fill = {
             order: orderUtils.getOrderStruct(signedOrder),
             takerTokenFillAmount: takerTokenFillAmount || signedOrder.takerTokenAmount,
+            defaultParamsId: defaultParamsIds || new BigNumber(0),
             signature: signedOrder.signature,
         };
         return fill;
     },
-    createCancel(signedOrder: SignedOrder, takerTokenCancelAmount?: BigNumber) {
+    createCancel(signedOrder: SignedOrder, defaultParamsIds?: BigNumber) {
         const cancel = {
             order: orderUtils.getOrderStruct(signedOrder),
-            takerTokenCancelAmount: takerTokenCancelAmount || signedOrder.takerTokenAmount,
+            defaultParamsIds: defaultParamsIds || new BigNumber(0),
         };
         return cancel;
     },
